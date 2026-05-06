@@ -7,6 +7,7 @@ import {
   SettingsIcon,
   GamepadIcon
 } from './Icons.jsx';
+import { useGames } from '../context/GameContext.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: HomeIcon, end: true },
@@ -17,6 +18,7 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const { mode, syncing } = useGames();
   return (
     <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-edge bg-bg-surface/70 backdrop-blur sticky top-0 h-screen">
       <div className="px-5 py-6 flex items-center gap-2.5 border-b border-edge">
@@ -29,6 +31,14 @@ export default function Sidebar() {
           </div>
           <div className="text-[10px] uppercase tracking-widest text-muted">co-op tracker</div>
         </div>
+      </div>
+      <div className="px-5 py-2 text-[10px] uppercase tracking-widest text-muted flex items-center gap-2 border-b border-edge">
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            mode === 'remote' ? 'bg-accent' : 'bg-muted'
+          } ${syncing ? 'animate-pulseSoft' : ''}`}
+        />
+        {mode === 'remote' ? (syncing ? 'syncing…' : 'live sync') : 'browser-only'}
       </div>
       <nav className="flex-1 p-3 flex flex-col gap-1">
         {NAV.map(({ to, label, icon: Icon, end }) => (
