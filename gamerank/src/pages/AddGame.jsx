@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGames } from '../context/GameContext.jsx';
 import CoverImage from '../components/CoverImage.jsx';
+import CoverPicker from '../components/CoverPicker.jsx';
 
 const GENRES = [
   'Action',
@@ -83,15 +84,12 @@ export default function AddGame() {
             />
           </div>
           <div>
-            <label className="label">Cover Image URL</label>
-            <input
-              className="input"
+            <label className="label">Cover Image</label>
+            <CoverPicker
               value={form.cover}
-              onChange={(e) => update('cover', e.target.value)}
-              placeholder="https://..."
-              type="url"
+              onChange={(v) => update('cover', v)}
+              title={form.title}
             />
-            <p className="text-[11px] text-muted mt-1">Optional — paste a direct link to a cover image.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -9,6 +9,7 @@ import {
   gameStatus
 } from '../utils/scoring.js';
 import CoverImage from '../components/CoverImage.jsx';
+import CoverPicker from '../components/CoverPicker.jsx';
 import StatusBadge, { GenreBadge, PlatformBadge } from '../components/StatusBadge.jsx';
 import RatingForm from '../components/RatingForm.jsx';
 import { TrashIcon } from '../components/Icons.jsx';
@@ -106,8 +107,9 @@ function PlayerPanel({ name, review, onSave, onClear }) {
 export default function GameDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getGame, updateReview, deleteGame, players } = useGames();
+  const { getGame, updateGame, updateReview, deleteGame, players } = useGames();
   const game = getGame(id);
+  const [editingCover, setEditingCover] = useState(false);
 
   if (!game) {
     return (
@@ -142,8 +144,15 @@ export default function GameDetail() {
       </nav>
 
       <header className="card overflow-hidden grid md:grid-cols-[260px_1fr] gap-0">
-        <div className="md:h-full">
+        <div className="md:h-full relative group">
           <CoverImage src={game.cover} title={game.title} className="md:h-full" />
+          <button
+            type="button"
+            onClick={() => setEditingCover(true)}
+            className="absolute bottom-2 right-2 px-2 py-1 text-[11px] font-semibold rounded-md bg-bg/80 border border-edge backdrop-blur hover:bg-bg-elevated transition opacity-0 group-hover:opacity-100"
+          >
+            {game.cover ? 'Change cover' : 'Add cover'}
+          </button>
         </div>
         <div className="p-6 flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
@@ -192,6 +201,39 @@ export default function GameDetail() {
           }
         />
       </section>
+
+      {editingCover && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setEditingCover(false)}
+        >
+          <div
+            className="card p-5 max-w-lg w-full space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-bold">Cover image</h3>
+              <button
+                onClick={() => setEditingCover(false)}
+                className="text-muted hover:text-white text-xl leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <CoverPicker
+              value={game.cover}
+              onChange={(v) => updateGame(game.id, { cover: v })}
+              title={game.title}
+            />
+            <div className="flex justify-end pt-2 border-t border-edge">
+              <button onClick={() => setEditingCover(false)} className="btn-primary">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
