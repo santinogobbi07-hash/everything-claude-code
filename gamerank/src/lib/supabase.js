@@ -46,6 +46,64 @@ export function isSupabaseConfigured() {
   return Boolean(getSupabaseConfig());
 }
 
+// Pings the Supabase project to verify URL + key + schema + permissions.
+// Returns a structured result the UI can render plainly.
+export async function testConnection() {
+  const cfg = getSupabaseConfig();
+  if (!cfg) {
+    return { ok: false, stage: 'config', message: 'No URL or key saved.' };
+  }
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, stage: 'config', message: 'Could not create Supabase client.' };
+  }
+  try {
+    const gamesRes = await client.from('games').select('id', { count: 'exact', head: true });
+    if (gamesRes.error) {
+      return {
+        ok: false,
+        stage: 'games',
+        message: gamesRes.error.message,
+        hint: gamesRes.error.message?.includes('does not exist')
+          ? 'The "games" table is missing. Did the SQL setup run in this project?'
+          : gamesRes.error.message?.toLowerCase().includes('row-level security')
+          ? 'RLS is blocking access. Re-run the SQL setup snippet.'
+          : 'Check the Project URL and the anon public key.'
+      };
+    }
+    const settingsRes = await client
+      .from('settings')
+      .select('players')
+      .eq('id', 1)
+      .maybeSingle();
+    if (settingsRes.error) {
+      return {
+        ok: false,
+        stage: 'settings',
+        message: settingsRes.error.message,
+        hint: 'The "settings" table looks misconfigured. Re-run the SQL setup snippet.'
+      };
+    }
+    return {
+      ok: true,
+      stage: 'ok',
+      message: 'Connected.',
+      counts: {
+        games: gamesRes.count ?? 0,
+        hasSettings: Boolean(settingsRes.data)
+      },
+      url: cfg.url
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      stage: 'network',
+      message: err?.message || String(err),
+      hint: 'Check the Project URL — it should look like https://xxxxx.supabase.co'
+    };
+  }
+}
+
 // Schema we expect in Supabase (run this SQL in the project's SQL editor):
 export const SETUP_SQL = `-- GameRank shared schema
 create table if not exists public.games (

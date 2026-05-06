@@ -20,7 +20,8 @@ function StatCard({ label, value, sub }) {
 }
 
 export default function Dashboard() {
-  const { games } = useGames();
+  const { games, mode, ready } = useGames();
+  const loading = mode === 'remote' && !ready;
 
   const total = games.length;
   const reviewed = games.filter(
@@ -76,7 +77,14 @@ export default function Dashboard() {
         />
       </section>
 
-      {games.length === 0 ? (
+      {loading ? (
+        <div className="card p-8 text-center text-muted">
+          <div className="inline-flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulseSoft" />
+            Loading shared library…
+          </div>
+        </div>
+      ) : games.length === 0 ? (
         <EmptyState />
       ) : (
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">

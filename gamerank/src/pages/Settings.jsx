@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGames } from '../context/GameContext.jsx';
-import { getSupabaseConfig, saveSupabaseConfig, SETUP_SQL } from '../lib/supabase.js';
+import {
+  getSupabaseConfig,
+  saveSupabaseConfig,
+  SETUP_SQL,
+  testConnection
+} from '../lib/supabase.js';
 
 export default function Settings() {
   const { players, updatePlayers, games, mode } = useGames();
@@ -13,6 +18,31 @@ export default function Settings() {
   const [key, setKey] = useState(cfg?.key || '');
   const [showSql, setShowSql] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [test, setTest] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  // Auto-run a connection test once when sync is enabled.
+  useEffect(() => {
+    if (mode === 'remote' && !test && !testing) {
+      runTest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  const runTest = async () => {
+    setTesting(true);
+    setTest(null);
+    const result = await testConnection();
+    setTest(result);
+    setTesting(false);
+  };
+
+  const copyUrl = async () => {
+    if (cfg?.url) await navigator.clipboard.writeText(cfg.url);
+  };
+  const copyKey = async () => {
+    if (cfg?.key) await navigator.clipboard.writeText(cfg.key);
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -75,6 +105,18 @@ export default function Settings() {
       </header>
 
       <ModeBadge mode={mode} />
+
+      {mode === 'remote' && (
+        <DiagnosticsCard
+          cfg={cfg}
+          test={test}
+          testing={testing}
+          onTest={runTest}
+          onCopyUrl={copyUrl}
+          onCopyKey={copyKey}
+          gamesLoaded={games.length}
+        />
+      )}
 
       <form onSubmit={handleSave} className="card p-5 space-y-4">
         <h2 className="font-display text-lg font-semibold">Player Names</h2>
@@ -217,27 +259,96 @@ export default function Settings() {
 }
 
 function ModeBadge({ mode }) {
-  if (mode === 'remote') {
-    return (
-      <div className="card p-4 flex items-center gap-3 border-accent/40">
-        <span className="w-2 h-2 rounded-full bg-accent animate-pulseSoft" />
-        <div className="flex-1">
-          <div className="font-semibold">Sync is on</div>
-          <div className="text-xs text-muted">
-            Changes from either player appear live for the other.
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (mode === 'remote') return null; // Replaced by the richer diagnostics card.
   return (
-    <div className="card p-4 flex items-center gap-3">
-      <span className="w-2 h-2 rounded-full bg-muted" />
+    <div className="card p-4 flex items-center gap-3 border-amber-500/30">
+      <span className="w-2 h-2 rounded-full bg-amber-400" />
       <div className="flex-1">
         <div className="font-semibold">Browser-only mode</div>
         <div className="text-xs text-muted">
-          Data is stored only in this browser. Set up sync below to share with a friend.
+          Data is stored only in this browser — your friend cannot see it. Set up sync below.
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DiagnosticsCard({ cfg, test, testing, onTest, onCopyUrl, onCopyKey, gamesLoaded }) {
+  const projectId = cfg?.url?.match(/https?:\/\/([^.]+)\./)?.[1] || '—';
+  const okBorder =
+    test?.ok === true
+      ? 'border-accent/40'
+      : test?.ok === false
+      ? 'border-red-500/40'
+      : 'border-edge';
+  return (
+    <div className={`card p-5 space-y-4 ${okBorder}`}>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-accent animate-pulseSoft" />
+          Sync diagnostics
+        </h2>
+        <button onClick={onTest} className="btn-ghost text-xs" disabled={testing}>
+          {testing ? 'Testing…' : 'Test connection'}
+        </button>
+      </div>
+
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt className="text-[10px] uppercase tracking-wider text-muted">Project</dt>
+          <dd className="font-mono text-xs break-all flex items-center gap-2 mt-1">
+            <span className="truncate">{projectId}</span>
+            <button onClick={onCopyUrl} className="text-[10px] text-muted hover:text-accent">
+              copy URL
+            </button>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wider text-muted">Anon key</dt>
+          <dd className="font-mono text-xs flex items-center gap-2 mt-1">
+            <span>••••{cfg?.key?.slice(-6) || '—'}</span>
+            <button onClick={onCopyKey} className="text-[10px] text-muted hover:text-accent">
+              copy
+            </button>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wider text-muted">Games in cloud</dt>
+          <dd className="text-base font-semibold mt-1 tabular-nums">
+            {test?.ok ? test.counts.games : '—'}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wider text-muted">Games loaded here</dt>
+          <dd className="text-base font-semibold mt-1 tabular-nums">{gamesLoaded}</dd>
+        </div>
+      </dl>
+
+      {test && (
+        <div
+          className={`rounded-lg p-3 text-sm ${
+            test.ok
+              ? 'bg-accent/10 border border-accent/30 text-accent'
+              : 'bg-red-500/10 border border-red-500/30 text-red-300'
+          }`}
+        >
+          <div className="font-semibold">
+            {test.ok ? '✓ Connection OK' : `✗ Failed at: ${test.stage}`}
+          </div>
+          {!test.ok && (
+            <>
+              <div className="mt-1 text-xs opacity-90">{test.message}</div>
+              {test.hint && <div className="mt-1 text-xs opacity-80 italic">→ {test.hint}</div>}
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="text-xs text-muted leading-relaxed bg-bg-elevated/40 rounded-lg p-3">
+        <strong className="text-slate-200">Don't see your friend's data?</strong> Make sure both
+        of you pasted <em>exactly the same Project URL and anon key</em>. The "Project" string
+        above must be identical on both screens. If it's not, one of you is on a different
+        Supabase project.
       </div>
     </div>
   );
